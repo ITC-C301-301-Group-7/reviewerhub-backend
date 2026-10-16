@@ -3,6 +3,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LearningResourceController;
+use App\Http\Controllers\Api\ProfilePhotoController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -39,5 +40,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/resources/{resource}', [
         LearningResourceController::class,
         'destroy'
+    ]);
+
+    Route::post('/profile/photo', [
+        ProfilePhotoController::class,
+        'store'
     ]);
 });

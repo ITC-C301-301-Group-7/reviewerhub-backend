@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\LearningResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 
 class LearningResourceController extends Controller
 {
@@ -22,7 +21,7 @@ class LearningResourceController extends Controller
                     'courseCode' => $resource->course_code,
                     'college' => $resource->college,
                     'description' => $resource->description,
-                    'author' => $resource->user->name,
+                    'author' => $resource->user?->name ?? 'ReviewerHub User',
                     'filename' => $resource->original_filename,
                     'mimeType' => $resource->mime_type,
                     'fileSize' => $resource->file_size,
@@ -104,7 +103,16 @@ class LearningResourceController extends Controller
             'You can only delete your own uploads.'
         );
 
-        Storage::disk('local')->delete($resource->file_path);
+        // Delete from the disk where the file actually exists.
+        foreach (['local', 'public'] as $diskName) {
+            $disk = Storage::disk($diskName);
+
+            if ($disk->exists($resource->file_path)) {
+                $disk->delete($resource->file_path);
+                break;
+            }
+        }
+
         $resource->delete();
 
         return response()->json([
@@ -116,29 +124,31 @@ class LearningResourceController extends Controller
         LearningResource $resource,
         bool $inline
     ) {
-        $disk = Storage::disk('local');
+        foreach (['public', 'local'] as $diskName) {
+            $disk = Storage::disk($diskName);
 
-        abort_unless(
-            $disk->exists($resource->file_path),
-            404,
-            'The file could not be found.'
-        );
+            if (!$disk->exists($resource->file_path)) {
+                continue;
+            }
 
-        $disposition = $inline ? 'inline' : 'attachment';
+            $disposition = $inline ? 'inline' : 'attachment';
 
-        return response()->file(
-            $disk->path($resource->file_path),
-            [
-                'Content-Type' => $resource->mime_type,
-                'Content-Disposition' =>
-                $disposition . '; filename="' .
-                    addcslashes(
-                        basename($resource->original_filename),
-                        '"\\'
-                    ) . '"',
-                'X-Content-Type-Options' => 'nosniff',
-                'Cache-Control' => 'private, no-store',
-            ]
-        );
+            return response()->file(
+                $disk->path($resource->file_path),
+                [
+                    'Content-Type' => $resource->mime_type,
+                    'Content-Disposition' =>
+                    $disposition . '; filename="' .
+                        addcslashes(
+                            basename($resource->original_filename),
+                            '"\\'
+                        ) . '"',
+                    'X-Content-Type-Options' => 'nosniff',
+                    'Cache-Control' => 'private, no-store',
+                ]
+            );
+        }
+
+        abort(404, 'The reviewer file could not be found.');
     }
 }
