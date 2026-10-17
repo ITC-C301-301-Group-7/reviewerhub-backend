@@ -22,6 +22,8 @@ class LearningResourceController extends Controller
                     'college' => $resource->college,
                     'description' => $resource->description,
                     'author' => $resource->user?->name ?? 'ReviewerHub User',
+                    'userId' => $resource->user_id,
+                    'createdAt' => $resource->created_at?->toIso8601String(),
                     'filename' => $resource->original_filename,
                     'mimeType' => $resource->mime_type,
                     'fileSize' => $resource->file_size,
