@@ -6,21 +6,39 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        // Emails are matched case-sensitively in the database, so store them lowercase.
+        $request->merge([
+            'email' => Str::lower(trim((string) $request->input('email'))),
+        ]);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            // Same rule as the signup form: at least 8 characters and a number.
+            'password' => ['required', 'string', Password::min(8)->numbers(), 'confirmed'],
             'role' => ['required', Rule::in(['student', 'teacher'])],
-            'student_number' => ['nullable', 'string', 'max:50', 'unique:users,student_number', 'required_if:role,student'],
+            'student_number' => [
+                'nullable',
+                'string',
+                'max:50',
+                'unique:users,student_number',
+                'required_if:role,student',
+                // Student IDs look like 23-123456 (checked only for students).
+                Rule::when($request->input('role') === 'student', ['regex:/^\d{2}-\d{6}$/']),
+            ],
             'faculty_id' => ['nullable', 'string', 'max:50', 'unique:users,faculty_id', 'required_if:role,teacher'],
             'department' => ['nullable', 'string', 'max:255'],
             'year_level' => ['nullable', 'string', 'max:50'],
+        ], [
+            'student_number.regex' => 'Student ID must be formatted as YY-XXXXXX (e.g., 23-123456).',
         ]);
 
         if ($validated['role'] === 'student') {
@@ -47,6 +65,11 @@ class AuthController extends Controller
         ]);
 
         $identifier = trim($validated['identifier']);
+
+        // Registration stores emails lowercase, so match them lowercase.
+        if (str_contains($identifier, '@')) {
+            $identifier = Str::lower($identifier);
+        }
         $role = $validated['role'];
 
         $user = User::query()

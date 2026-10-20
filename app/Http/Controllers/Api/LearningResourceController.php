@@ -9,12 +9,40 @@ use Illuminate\Support\Facades\Storage;
 
 class LearningResourceController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $resources = LearningResource::with('user:id,name')
+        $filters = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'college' => ['sometimes', 'nullable', 'string', 'max:255'],
+        ]);
+
+        // Newest first; id breaks ties so pages never repeat or skip rows.
+        $query = LearningResource::with('user:id,name')
             ->latest()
-            ->get()
-            ->map(function ($resource) {
+            ->orderByDesc('id');
+
+        if (!empty($filters['search'])) {
+            $term = '%' . $filters['search'] . '%';
+
+            $query->where(function ($q) use ($term) {
+                $q->where('title', 'like', $term)
+                    ->orWhere('course_code', 'like', $term)
+                    ->orWhereHas(
+                        'user',
+                        fn($user) => $user->where('name', 'like', $term)
+                    );
+            });
+        }
+
+        if (!empty($filters['college'])) {
+            $query->where('college', 'like', '%' . $filters['college'] . '%');
+        }
+
+        $resources = $query
+            ->paginate($filters['per_page'] ?? 12)
+            ->through(function ($resource) {
                 return [
                     'id' => $resource->id,
                     'title' => $resource->title,
@@ -36,6 +64,7 @@ class LearningResourceController extends Controller
                 ];
             });
 
+        // Standard Laravel pagination JSON: data, current_page, last_page, total, ...
         return response()->json($resources);
     }
 
@@ -105,15 +134,8 @@ class LearningResourceController extends Controller
             'You can only delete your own uploads.'
         );
 
-        // Delete from the disk where the file actually exists.
-        foreach (['local', 'public'] as $diskName) {
-            $disk = Storage::disk($diskName);
-
-            if ($disk->exists($resource->file_path)) {
-                $disk->delete($resource->file_path);
-                break;
-            }
-        }
+        // Reviewer files live on the private "local" disk only.
+        Storage::disk('local')->delete($resource->file_path);
 
         $resource->delete();
 
@@ -126,31 +148,31 @@ class LearningResourceController extends Controller
         LearningResource $resource,
         bool $inline
     ) {
-        foreach (['public', 'local'] as $diskName) {
-            $disk = Storage::disk($diskName);
+        // Private disk (storage/app/private): not reachable through /storage,
+        // so every download goes through this authenticated route.
+        $disk = Storage::disk('local');
 
-            if (!$disk->exists($resource->file_path)) {
-                continue;
-            }
+        abort_unless(
+            $disk->exists($resource->file_path),
+            404,
+            'The reviewer file could not be found.'
+        );
 
-            $disposition = $inline ? 'inline' : 'attachment';
+        $disposition = $inline ? 'inline' : 'attachment';
 
-            return response()->file(
-                $disk->path($resource->file_path),
-                [
-                    'Content-Type' => $resource->mime_type,
-                    'Content-Disposition' =>
-                    $disposition . '; filename="' .
-                        addcslashes(
-                            basename($resource->original_filename),
-                            '"\\'
-                        ) . '"',
-                    'X-Content-Type-Options' => 'nosniff',
-                    'Cache-Control' => 'private, no-store',
-                ]
-            );
-        }
-
-        abort(404, 'The reviewer file could not be found.');
+        return response()->file(
+            $disk->path($resource->file_path),
+            [
+                'Content-Type' => $resource->mime_type,
+                'Content-Disposition' =>
+                $disposition . '; filename="' .
+                    addcslashes(
+                        basename($resource->original_filename),
+                        '"\\'
+                    ) . '"',
+                'X-Content-Type-Options' => 'nosniff',
+                'Cache-Control' => 'private, no-store',
+            ]
+        );
     }
 }

@@ -20,7 +20,8 @@ class ExistingReviewersSeeder extends Seeder
             return;
         }
 
-        $files = Storage::disk('public')->files('resources');
+        // Reads PDFs from storage/app/private/resources (the private disk).
+        $files = Storage::disk('local')->files('resources');
 
         foreach ($files as $path) {
             if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) !== 'pdf') {
@@ -39,7 +40,7 @@ class ExistingReviewersSeeder extends Seeder
                     'description' => 'Imported reviewer PDF.',
                     'original_filename' => $filename,
                     'mime_type' => 'application/pdf',
-                    'file_size' => Storage::disk('public')->size($path),
+                    'file_size' => Storage::disk('local')->size($path),
                 ]
             );
         }
