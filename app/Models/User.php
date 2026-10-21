@@ -46,6 +46,11 @@ class User extends Authenticatable
         return $this->hasMany(LearningResource::class);
     }
 
+    public function classSchedules(): HasMany
+    {
+        return $this->hasMany(ClassSchedule::class);
+    }
+
     protected function casts(): array
     {
         return [
