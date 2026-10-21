@@ -168,3 +168,34 @@ JRU Rizalian ReviewerHub aims to provide a centralized platform for learning res
 **Component:** Laravel Backend API  
 **Database:** MySQL  
 **Frontend:** React.js
+
+## Teacher Dashboard API (faculty only)
+
+All routes need a Bearer token from a `teacher` account (others get 403).
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/teacher/overview` | Stats, 7-day upload activity, top contributors, recent uploads |
+| GET | `/api/teacher/resources` | All reviewers incl. hidden. Filters: `author` (all/student/mine), `status` (all/approved/hidden), `search`, `page` |
+| PATCH | `/api/teacher/resources/{id}` | Edit title, course code, college, description |
+| PATCH | `/api/teacher/resources/{id}/status` | `status`: `approved` or `hidden` (+ optional `note`) |
+| GET | `/api/teacher/community` | Members list. Filters: `role`, `search`, `page` |
+
+Teachers also use `POST /api/resources` (upload) and `DELETE /api/resources/{id}` (can delete any upload).
+Hidden reviewers disappear from `GET /api/resources` (the student community).
+
+### Test teacher account
+
+```bash
+php artisan migrate
+php artisan db:seed --class=TeacherSeeder
+```
+
+| Field | Value |
+|---|---|
+| Role | Faculty (teacher) |
+| Faculty ID | `99-000001` |
+| Email | `teacher@jru.edu.ph` |
+| Password | `Teacher123` |
+
+The seeder is skipped when `APP_ENV=production`.

@@ -19,7 +19,9 @@ class LearningResourceController extends Controller
         ]);
 
         // Newest first; id breaks ties so pages never repeat or skip rows.
+        // Hidden reviewers (removed by a teacher) never appear in the community.
         $query = LearningResource::with('user:id,name')
+            ->where('status', 'approved')
             ->latest()
             ->orderByDesc('id');
 
@@ -105,8 +107,10 @@ class LearningResourceController extends Controller
         ], 201);
     }
 
-    public function preview(LearningResource $resource)
+    public function preview(Request $request, LearningResource $resource)
     {
+        $this->abortUnlessViewable($request, $resource);
+
         abort_unless(
             in_array($resource->mime_type, [
                 'application/pdf',
@@ -121,15 +125,19 @@ class LearningResourceController extends Controller
         return $this->serveFile($resource, true);
     }
 
-    public function download(LearningResource $resource)
+    public function download(Request $request, LearningResource $resource)
     {
+        $this->abortUnlessViewable($request, $resource);
+
         return $this->serveFile($resource, false);
     }
 
     public function destroy(Request $request, LearningResource $resource)
     {
+        // Owners can delete their own uploads; teachers can delete any upload.
         abort_unless(
-            $request->user()->id === $resource->user_id,
+            $request->user()->id === $resource->user_id
+                || $request->user()->role === 'teacher',
             403,
             'You can only delete your own uploads.'
         );
@@ -142,6 +150,24 @@ class LearningResourceController extends Controller
         return response()->json([
             'message' => 'Reviewer deleted successfully.',
         ]);
+    }
+
+    // Hidden reviewers can only be opened by their owner or a teacher.
+    private function abortUnlessViewable(
+        Request $request,
+        LearningResource $resource
+    ): void {
+        if ($resource->status === 'approved') {
+            return;
+        }
+
+        $user = $request->user();
+
+        abort_unless(
+            $user && ($user->role === 'teacher' || $user->id === $resource->user_id),
+            404,
+            'The reviewer file could not be found.'
+        );
     }
 
     private function serveFile(

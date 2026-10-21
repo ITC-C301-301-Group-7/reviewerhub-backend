@@ -17,7 +17,16 @@ class LearningResource extends Model
         'file_path',
         'mime_type',
         'file_size',
+        'status',
+        'moderation_note',
+        'moderated_by',
+        'moderated_at',
     ];
+
+    protected function casts(): array
+    {
+        return ['moderated_at' => 'datetime'];
+    }
 
     public function user(): BelongsTo
     {

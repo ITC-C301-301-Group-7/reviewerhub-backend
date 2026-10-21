@@ -17,6 +17,9 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
+        // Predefined faculty account for testing the teacher dashboard.
+        $this->call(TeacherSeeder::class);
+
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
