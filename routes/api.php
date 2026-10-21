@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LearningResourceController;
 use App\Http\Controllers\Api\ProfilePhotoController;
 use App\Http\Controllers\Api\ResourceInteractionController;
+use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\TranslationController;
 use App\Http\Controllers\Api\TeacherController;
 use Illuminate\Http\Request;
@@ -42,6 +43,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/resources/{resource}/comments', [ResourceInteractionController::class, 'storeComment'])
         ->middleware('throttle:20,1');
     Route::delete('/comments/{comment}', [ResourceInteractionController::class, 'destroyComment']);
+
+    // The signed-in user's own class schedule (add / edit / delete).
+    Route::get('/schedule', [ScheduleController::class, 'index']);
+    Route::post('/schedule', [ScheduleController::class, 'store']);
+    Route::put('/schedule/{entry}', [ScheduleController::class, 'update'])->whereNumber('entry');
+    Route::delete('/schedule/{entry}', [ScheduleController::class, 'destroy'])->whereNumber('entry');
 
     // OCR text is extracted in the browser; this only translates it.
     Route::post('/translate', [TranslationController::class, 'translate'])
