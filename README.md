@@ -1,70 +1,62 @@
-
 # JRU Rizalian ReviewerHub — Backend
 
-A Laravel REST API backend for JRU Rizalian ReviewerHub, a web-based platform designed to support students and teachers in accessing and sharing learning resources and reviewers.
-
-## Technologies Used
-
-- Laravel
-- PHP
-- MySQL
-- Laravel Sanctum
-- React.js (Frontend)
-- Composer
+A Laravel REST API for JRU Rizalian ReviewerHub, a web platform where students and teachers share, review and manage learning resources (reviewers).
 
 ## Features
 
-- Student and teacher registration
-- Login using email or student/faculty ID
-- Password hashing and verification
-- API token authentication using Laravel Sanctum
-- Authenticated user information retrieval
-- Logout and token revocation
-- MySQL database integration
+- **Accounts:** student and teacher registration, login with email or student/faculty ID, API tokens (Laravel Sanctum), logout with token revocation, profile photo upload.
+- **Learning resources:** upload PDF, Word, PowerPoint and image files; private storage; authenticated preview and download.
+- **Teacher tools:** dashboard statistics, manage and edit every reviewer, hide or restore reviewers, view student submissions, monitor community members.
+- **Resource interaction:** bookmarks, 1–5 star ratings and comments.
+- **QR sharing:** `GET /api/resources/{id}` powers QR codes and shared links.
+- **Document translation:** translates text that the React app extracts (OCR for scans and photos happens in the browser).
+- **Class schedule:** each student keeps a personal class schedule (add, edit, delete).
+
+## Roles
+
+| Action | Student | Teacher |
+|---|---|---|
+| Upload, preview, download reviewers | Yes | Yes |
+| Delete reviewers | Own uploads only | Any upload |
+| Edit details, hide or restore reviewers | No | Yes |
+| Bookmark, rate (not your own), comment | Yes | Yes |
+| Delete comments | Own comments | Any comment |
+| Teacher dashboard (`/api/teacher/*`) | No (403) | Yes |
+| Personal class schedule | Yes | Yes |
+
+Hidden reviewers disappear from the community list. Only their owner and teachers can still open them.
+
+## Technologies
+
+Laravel, PHP, MySQL (SQLite also works), Laravel Sanctum, Composer. The frontend is a separate React app.
 
 ## Requirements
 
-- PHP
-- Composer
-- MySQL or XAMPP
+- PHP 8.2 or newer and Composer
+- MySQL (XAMPP is fine) or SQLite
 - Git
+- Internet access on the server if you use document translation
 
 ## Installation
 
-### 1. Clone the Repository
+### 1. Get the code and install dependencies
 
 ```bash
 git clone YOUR-BACKEND-REPOSITORY-URL
 cd reviewerhub-backend
-```
-
-Replace `YOUR-BACKEND-REPOSITORY-URL` with your GitHub repository URL.
-
-### 2. Install Dependencies
-
-```bash
 composer install
 ```
 
-### 3. Configure Environment
-
-Create your local environment file:
+### 2. Configure the environment
 
 ```powershell
 Copy-Item .env.example .env
-```
-
-Generate the application key:
-
-```bash
 php artisan key:generate
 ```
 
-### 4. Configure the Database
+### 3. Configure the database
 
-Create a MySQL database named `reviewerhub` in phpMyAdmin.
-
-Update your local `.env` file:
+`.env.example` defaults to SQLite. For MySQL, create a database named `reviewerhub` in phpMyAdmin and set:
 
 ```env
 DB_CONNECTION=mysql
@@ -75,36 +67,125 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-Change the username and password if your MySQL configuration is different.
-
-### 5. Run Migrations
+### 4. Create the tables and sample data
 
 ```bash
 php artisan migrate
+php artisan db:seed
+php artisan storage:link
 ```
 
-### 6. Start the Server
+`php artisan db:seed` runs three steps, and is safe to run again:
+
+1. **TeacherSeeder:** creates the test teacher account (see below).
+2. A sample student, `test@example.com`, created once.
+3. **ExistingReviewersSeeder:** imports the PDFs found in `storage/app/private/resources` and copies any PDFs from `storage/app/public/resources` into that folder first. Imported reviewers belong to the teacher account.
+
+`storage:link` is needed so profile pictures can be displayed.
+
+### 5. Start the server
 
 ```bash
 php artisan serve
 ```
 
-The backend will usually run at:
+The API runs at `http://127.0.0.1:8000`.
 
-http://127.0.0.1:8000
+## Test teacher account
+
+| Field | Value |
+|---|---|
+| Role | Faculty (teacher) |
+| Faculty ID | `99-000001` |
+| Email | `teacher@jru.edu.ph` |
+| Password | `Teacher123` |
+
+Run only this seeder with `php artisan db:seed --class=TeacherSeeder`. It is skipped when `APP_ENV=production`, so the known password never reaches a live server.
+
+## Translation provider
+
+The server translates text in pieces of about 450 characters and caches results for 7 days. Configure it in `.env`:
+
+```env
+TRANSLATION_PROVIDER=mymemory      # free, no account, small daily quota
+MYMEMORY_EMAIL=you@example.com     # optional: raises the free quota
+# For heavy use:
+# TRANSLATION_PROVIDER=libretranslate
+# LIBRETRANSLATE_URL=http://localhost:5000
+# LIBRETRANSLATE_API_KEY=
+```
 
 ## API Endpoints
 
-Base URL: `http://127.0.0.1:8000/api`
+Base URL: `http://127.0.0.1:8000/api`. "Auth" means a Bearer token is required.
 
-| Method | Endpoint | Description | Authentication |
+### Accounts
+
+| Method | Endpoint | Description | Auth |
 |---|---|---|---|
 | POST | `/register` | Register a student or teacher | No |
-| POST | `/login` | Log in to an account | No |
-| GET | `/user` | Retrieve the authenticated user | Required |
-| POST | `/logout` | Log out and revoke the current token | Required |
+| POST | `/login` | Log in | No |
+| GET | `/user` | The signed-in user | Yes |
+| POST | `/logout` | Revoke the current token | Yes |
+| POST | `/profile/photo` | Upload a profile picture (`profile_photo`: JPG, PNG or WEBP, max 2 MB) | Yes |
 
-## Login Request Example
+### Learning resources
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/resources` | List visible reviewers. Filters: `search`, `college`, `page`, `per_page`. Includes `ratingAverage`, `ratingCount`, `commentCount`, and `bookmarked` / `myRating` when a token is sent | No |
+| POST | `/resources` | Upload (`title`, `course_code`, `college`, `description`, `file`). Allowed: pdf, doc, docx, ppt, pptx, jpg, jpeg, png, webp, up to 20 MB | Yes |
+| GET | `/resources/{id}` | One resource with rating and bookmark info (used by QR links) | Yes |
+| GET | `/resources/{id}/preview` | Inline view (PDF and images only) | Yes |
+| GET | `/resources/{id}/download` | Download the file | Yes |
+| DELETE | `/resources/{id}` | Delete (owner, or any teacher) | Yes |
+
+### Bookmarks, ratings, comments
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/bookmarks` | The signed-in user's saved reviewers |
+| PUT / DELETE | `/resources/{id}/bookmark` | Save / unsave |
+| PUT | `/resources/{id}/rating` | `{ "rating": 1-5 }`. You cannot rate your own upload |
+| GET / POST | `/resources/{id}/comments` | List / post (`{ "body": "..." }`, max 1000 characters) |
+| DELETE | `/comments/{id}` | Delete a comment (its author or any teacher) |
+
+All require authentication.
+
+### Class schedule
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/schedule` | The signed-in user's classes |
+| POST | `/schedule` | Add a class: `code`, `name`, `schedule` required; `room`, `instructor`, `grade` optional. Up to 30 classes per user |
+| PUT | `/schedule/{id}` | Edit one of your classes |
+| DELETE | `/schedule/{id}` | Remove one of your classes |
+
+All require authentication. You can only see and change your own classes.
+
+### Translation
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/translate` | `{ "text", "source", "target" }`, up to 3000 characters per request. Language codes such as `en`, `tl`, `es`, `zh-CN`. Source and target must differ |
+
+Requires authentication.
+
+### Teacher only
+
+All routes below return 403 for non-teacher accounts.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/teacher/overview` | Counts, 7-day upload activity, top contributors, recent uploads |
+| GET | `/teacher/resources` | All reviewers including hidden. Filters: `author` (all, student, mine), `status` (all, approved, hidden), `search`, `page` |
+| PATCH | `/teacher/resources/{id}` | Edit title, course code, college, description |
+| PATCH | `/teacher/resources/{id}/status` | `status`: `approved` or `hidden`, plus an optional `note` |
+| GET | `/teacher/community` | Members with upload counts. Filters: `role`, `search`, `page` |
+
+## Request examples
+
+Login:
 
 ```json
 {
@@ -114,9 +195,9 @@ Base URL: `http://127.0.0.1:8000/api`
 }
 ```
 
-The `identifier` field accepts an email address or the appropriate student/faculty ID for the selected role.
+`identifier` accepts an email address or the student/faculty ID for the selected role.
 
-## Registration Request Example
+Registration:
 
 ```json
 {
@@ -132,70 +213,30 @@ The `identifier` field accepts an email address or the appropriate student/facul
 }
 ```
 
-For teacher registration, use `"role": "teacher"` and provide a `faculty_id`.
+For a teacher, use `"role": "teacher"` and provide a `faculty_id`.
 
-## React Frontend Integration
+## Frontend integration
 
-The React frontend runs separately from the Laravel backend.
+The React app runs separately (default `http://localhost:5173`) and calls this API. Set `VITE_API_URL` in the frontend `.env` to this server's address. Configure Laravel CORS if the frontend runs on a different origin.
 
-Example API endpoints:
+## Troubleshooting
 
-- `http://127.0.0.1:8000/api/login`
-- `http://127.0.0.1:8000/api/register`
+- **A new route or class is "not found":** run `php artisan route:clear` and `php artisan config:clear`, then restart `php artisan serve`.
+- **Preview says "The reviewer file could not be found":** the PDF is missing from `storage/app/private/resources`. Run `php artisan db:seed --class=ExistingReviewersSeeder`.
+- **Translation says the daily quota is used up:** set `MYMEMORY_EMAIL` in `.env`, or switch to LibreTranslate.
+- **Teacher login fails:** run `php artisan db:seed --class=TeacherSeeder` and check that `APP_ENV` is not `production`.
+- **Check what was created:** `php artisan migrate:status`, and `php artisan route:list --path=api`.
 
-Configure Laravel CORS if the frontend runs on a different origin.
+## Security notes
 
-## Security Notes
-
-- Never upload your `.env` file to GitHub.
-- Do not commit passwords, API secrets, or other credentials.
-- Keep authentication tokens private.
-- Use HTTPS when deploying publicly.
-
-## Development Status
-
-The backend currently provides the initial authentication API for student and teacher registration, login, retrieving the authenticated user, and logout.
-
-Additional features, such as learning resource management and reviewer uploads, can be added as development continues.
-
-## Project Purpose
-
-JRU Rizalian ReviewerHub aims to provide a centralized platform for learning resources and reviewer sharing to support students and teachers in their academic activities.
+- Never commit your `.env` file or any credentials.
+- Reviewer files are stored on the private disk. They are only served through authenticated routes.
+- Remove or change the test teacher account before deploying publicly.
+- Use HTTPS when deploying.
 
 ---
 
 **Project:** JRU Rizalian ReviewerHub  
 **Component:** Laravel Backend API  
-**Database:** MySQL  
-**Frontend:** React.js
-
-## Teacher Dashboard API (faculty only)
-
-All routes need a Bearer token from a `teacher` account (others get 403).
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/teacher/overview` | Stats, 7-day upload activity, top contributors, recent uploads |
-| GET | `/api/teacher/resources` | All reviewers incl. hidden. Filters: `author` (all/student/mine), `status` (all/approved/hidden), `search`, `page` |
-| PATCH | `/api/teacher/resources/{id}` | Edit title, course code, college, description |
-| PATCH | `/api/teacher/resources/{id}/status` | `status`: `approved` or `hidden` (+ optional `note`) |
-| GET | `/api/teacher/community` | Members list. Filters: `role`, `search`, `page` |
-
-Teachers also use `POST /api/resources` (upload) and `DELETE /api/resources/{id}` (can delete any upload).
-Hidden reviewers disappear from `GET /api/resources` (the student community).
-
-### Test teacher account
-
-```bash
-php artisan migrate
-php artisan db:seed --class=TeacherSeeder
-```
-
-| Field | Value |
-|---|---|
-| Role | Faculty (teacher) |
-| Faculty ID | `99-000001` |
-| Email | `teacher@jru.edu.ph` |
-| Password | `Teacher123` |
-
-The seeder is skipped when `APP_ENV=production`.
+**Database:** MySQL or SQLite  
+**Frontend:** React (Vite)
