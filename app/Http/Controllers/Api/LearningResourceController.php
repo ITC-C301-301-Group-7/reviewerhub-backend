@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\LearningResource;
+use App\Support\ResourcePresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -20,7 +21,7 @@ class LearningResourceController extends Controller
 
         // Newest first; id breaks ties so pages never repeat or skip rows.
         // Hidden reviewers (removed by a teacher) never appear in the community.
-        $query = LearningResource::with('user:id,name')
+        $query = LearningResource::query()
             ->where('status', 'approved')
             ->latest()
             ->orderByDesc('id');
@@ -42,29 +43,12 @@ class LearningResourceController extends Controller
             $query->where('college', 'like', '%' . $filters['college'] . '%');
         }
 
-        $resources = $query
-            ->paginate($filters['per_page'] ?? 12)
-            ->through(function ($resource) {
-                return [
-                    'id' => $resource->id,
-                    'title' => $resource->title,
-                    'courseCode' => $resource->course_code,
-                    'college' => $resource->college,
-                    'description' => $resource->description,
-                    'author' => $resource->user?->name ?? 'ReviewerHub User',
-                    'userId' => $resource->user_id,
-                    'createdAt' => $resource->created_at?->toIso8601String(),
-                    'filename' => $resource->original_filename,
-                    'mimeType' => $resource->mime_type,
-                    'fileSize' => $resource->file_size,
-                    'previewUrl' => url(
-                        "/api/resources/{$resource->id}/preview"
-                    ),
-                    'downloadUrl' => url(
-                        "/api/resources/{$resource->id}/download"
-                    ),
-                ];
-            });
+        // The route is public, but a token (if sent) adds bookmark / my-rating info.
+        $resources = ResourcePresenter::paginate(
+            $query,
+            $filters['per_page'] ?? 12,
+            $request->user('sanctum')
+        );
 
         // Standard Laravel pagination JSON: data, current_page, last_page, total, ...
         return response()->json($resources);

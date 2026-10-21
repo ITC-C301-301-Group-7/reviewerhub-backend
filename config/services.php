@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    // Used by POST /api/translate (document translation).
+    'translation' => [
+        'provider' => env('TRANSLATION_PROVIDER', 'mymemory'), // mymemory | libretranslate
+        'mymemory_email' => env('MYMEMORY_EMAIL'),
+        'libretranslate_url' => env('LIBRETRANSLATE_URL'),
+        'libretranslate_key' => env('LIBRETRANSLATE_API_KEY'),
+    ],
+
 ];

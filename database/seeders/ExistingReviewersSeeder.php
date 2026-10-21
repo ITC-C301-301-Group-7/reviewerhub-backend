@@ -11,26 +11,34 @@ class ExistingReviewersSeeder extends Seeder
 {
     public function run(): void
     {
-        $user = User::first();
+        // Imported reviewers belong to the faculty account when there is one.
+        $user = User::where('role', 'teacher')->first() ?? User::first();
 
         if (!$user) {
-            $this->command->error(
-                'No user exists. Register a user first.'
-            );
+            $this->command->error('No user exists. Register a user first.');
             return;
         }
 
-        // Reads PDFs from storage/app/private/resources (the private disk).
-        $files = Storage::disk('local')->files('resources');
+        $private = Storage::disk('local');   // storage/app/private (what preview/download read)
+        $public = Storage::disk('public');   // storage/app/public  (where the PDFs were placed)
 
-        foreach ($files as $path) {
+        // Copy any PDFs from the public folder into the private one, if missing.
+        foreach ($public->files('resources') as $path) {
+            if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf' && !$private->exists($path)) {
+                $private->writeStream($path, $public->readStream($path));
+            }
+        }
+
+        $imported = 0;
+
+        foreach ($private->files('resources') as $path) {
             if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) !== 'pdf') {
                 continue;
             }
 
             $filename = basename($path);
 
-            LearningResource::firstOrCreate(
+            $resource = LearningResource::firstOrCreate(
                 ['file_path' => $path],
                 [
                     'user_id' => $user->id,
@@ -40,11 +48,15 @@ class ExistingReviewersSeeder extends Seeder
                     'description' => 'Imported reviewer PDF.',
                     'original_filename' => $filename,
                     'mime_type' => 'application/pdf',
-                    'file_size' => Storage::disk('local')->size($path),
+                    'file_size' => $private->size($path),
                 ]
             );
+
+            if ($resource->wasRecentlyCreated) {
+                $imported++;
+            }
         }
 
-        $this->command->info('Existing reviewer PDFs imported.');
+        $this->command->info("Reviewer PDFs ready ({$imported} newly imported).");
     }
 }

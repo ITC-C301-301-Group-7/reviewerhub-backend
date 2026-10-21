@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LearningResource extends Model
 {
@@ -31,5 +32,27 @@ class LearningResource extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(ResourceRating::class);
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(ResourceComment::class);
+    }
+
+    public function bookmarks(): HasMany
+    {
+        return $this->hasMany(ResourceBookmark::class);
+    }
+
+    // Hidden reviewers can only be opened by their owner or a teacher.
+    public function isViewableBy(?User $user): bool
+    {
+        return $this->status === 'approved'
+            || ($user && ($user->role === 'teacher' || $user->id === $this->user_id));
     }
 }
