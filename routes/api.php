@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LearningResourceController;
+use App\Http\Controllers\Api\LeaderboardController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProfilePhotoController;
 use App\Http\Controllers\Api\ResourceInteractionController;
@@ -62,6 +63,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('throttle:20,1');
     Route::delete('/videos/{video}', [VideoResourceController::class, 'destroy'])
         ->whereNumber('video');
+
+    // Contributor leaderboard (This Month / This Semester / All-Time).
+    Route::get('/leaderboard', [LeaderboardController::class, 'index']);
 
     // The signed-in user's own class schedule (add / edit / delete).
     Route::get('/schedule', [ScheduleController::class, 'index']);

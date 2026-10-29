@@ -22,4 +22,20 @@ return [
     */
     "frontend_url" => rtrim((string) env("FRONTEND_URL", "http://localhost:5173"), "/"),
 
+    /*
+    | Leaderboard. "timezone" decides when "This Month" / "This Semester" start (the app itself
+    | stores dates in UTC). A semester runs from its start month until the next one starts; the
+    | latest start on or before today is the current semester. Edit these to match the school calendar.
+    */
+    "leaderboard" => [
+        "timezone" => env("LEADERBOARD_TIMEZONE", "Asia/Manila"),
+        "points_per_upload" => 50,
+        "points_per_five_star" => 10,
+        "semesters" => [
+            ["start_month" => 1, "label" => "2nd Semester"],
+            ["start_month" => 6, "label" => "Summer"],
+            ["start_month" => 8, "label" => "1st Semester"],
+        ],
+    ],
+
 ];
