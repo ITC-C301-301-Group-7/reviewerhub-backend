@@ -19,9 +19,25 @@ class AuthController extends Controller
             'email' => Str::lower(trim((string) $request->input('email'))),
         ]);
 
+        $isTeacher = $request->input('role') === 'teacher';
+        $allowedDomains = config('reviewerhub.allowed_email_domains', []);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                'unique:users,email',
+                // Only school email addresses may register.
+                function (string $attribute, mixed $value, \Closure $fail) use ($allowedDomains) {
+                    $domain = Str::after((string) $value, '@');
+
+                    if ($allowedDomains !== [] && !in_array($domain, $allowedDomains, true)) {
+                        $fail('Please use your JRU email address (@' . implode(', @', $allowedDomains) . ').');
+                    }
+                },
+            ],
             // Same rule as the signup form: at least 8 characters and a number.
             'password' => ['required', 'string', Password::min(8)->numbers(), 'confirmed'],
             'role' => ['required', Rule::in(['student', 'teacher'])],
@@ -32,14 +48,42 @@ class AuthController extends Controller
                 'unique:users,student_number',
                 'required_if:role,student',
                 // Student IDs look like 23-123456 (checked only for students).
-                Rule::when($request->input('role') === 'student', ['regex:/^\d{2}-\d{6}$/']),
+                Rule::when(!$isTeacher, ['regex:/^\d{2}-\d{6}$/']),
             ],
-            'faculty_id' => ['nullable', 'string', 'max:50', 'unique:users,faculty_id', 'required_if:role,teacher'],
+            'faculty_id' => [
+                'nullable',
+                'string',
+                'max:50',
+                'unique:users,faculty_id',
+                'required_if:role,teacher',
+                // Faculty IDs use the same YY-XXXXXX shape (e.g. 99-000001).
+                Rule::when($isTeacher, ['regex:/^\d{2}-\d{6}$/']),
+            ],
+            'invite_code' => ['nullable', 'string', 'max:100'],
             'department' => ['nullable', 'string', 'max:255'],
             'year_level' => ['nullable', 'string', 'max:50'],
         ], [
             'student_number.regex' => 'Student ID must be formatted as YY-XXXXXX (e.g., 23-123456).',
+            'faculty_id.regex' => 'Faculty ID must be formatted as YY-XXXXXX (e.g., 99-000001).',
         ]);
+
+        // Anyone can call this endpoint, so a teacher account needs the faculty invite code.
+        // If no code is configured, faculty registration is switched off.
+        if ($validated['role'] === 'teacher') {
+            $expected = (string) config('reviewerhub.faculty_invite_code', '');
+            $given = (string) ($validated['invite_code'] ?? '');
+
+            if ($expected === '' || !hash_equals($expected, $given)) {
+                return response()->json([
+                    'message' => 'Faculty accounts need a valid invitation code from the school administrator.',
+                    'errors' => [
+                        'invite_code' => ['Faculty accounts need a valid invitation code from the school administrator.'],
+                    ],
+                ], 422);
+            }
+        }
+
+        unset($validated['invite_code']);
 
         if ($validated['role'] === 'student') {
             $validated['faculty_id'] = null;

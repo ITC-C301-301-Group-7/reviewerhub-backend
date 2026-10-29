@@ -43,15 +43,53 @@ class LearningResourceController extends Controller
             $query->where('college', 'like', '%' . $filters['college'] . '%');
         }
 
-        // The route is public, but a token (if sent) adds bookmark / my-rating info.
+        // The route needs a signed-in user; the token adds bookmark / my-rating info.
         $resources = ResourcePresenter::paginate(
             $query,
             $filters['per_page'] ?? 12,
-            $request->user('sanctum')
+            $request->user()
         );
 
         // Standard Laravel pagination JSON: data, current_page, last_page, total, ...
         return response()->json($resources);
+    }
+
+    // GET /api/resources/top?sort=rated|reviewed|saved&limit=10
+    // Leaderboard of approved reviewers. Hidden reviewers never appear, and a reviewer
+    // with nothing to rank on (no ratings / reviews / saves) is left out of that list.
+    public function top(Request $request)
+    {
+        $filters = $request->validate([
+            'sort' => ['sometimes', 'in:rated,reviewed,saved'],
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        $sort = $filters['sort'] ?? 'rated';
+
+        $ratings = '(select count(*) from resource_ratings where resource_ratings.learning_resource_id = learning_resources.id)';
+        $comments = '(select count(*) from resource_comments where resource_comments.learning_resource_id = learning_resources.id)';
+        $saves = '(select count(*) from resource_bookmarks where resource_bookmarks.learning_resource_id = learning_resources.id)';
+
+        $query = LearningResource::query()->where('status', 'approved');
+
+        if ($sort === 'rated') {
+            // Highest average first; more ratings wins a tie, then the newest reviewer.
+            $query->whereRaw("$ratings > 0")
+                ->orderByRaw('(select avg(rating) from resource_ratings where resource_ratings.learning_resource_id = learning_resources.id) desc')
+                ->orderByRaw("$ratings desc");
+        } elseif ($sort === 'reviewed') {
+            $query->whereRaw("($ratings + $comments) > 0")
+                ->orderByRaw("($ratings + $comments) desc");
+        } else {
+            $query->whereRaw("$saves > 0")
+                ->orderByRaw("$saves desc");
+        }
+
+        $query->orderByDesc('learning_resources.id');
+
+        return response()->json([
+            'data' => ResourcePresenter::top($query, $filters['limit'] ?? 10, $request->user()),
+        ]);
     }
 
     public function store(Request $request)

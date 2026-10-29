@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -32,6 +33,21 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(5)->by($identifier . '|' . $request->ip()),
                 Limit::perMinute(60)->by($request->ip()),
             ];
+        });
+
+        // Password reset: stops people from spamming reset emails.
+        RateLimiter::for('password-reset', function (Request $request) {
+            return [
+                Limit::perMinute(5)->by(Str::lower((string) $request->input('identifier', $request->input('email'))) . '|' . $request->ip()),
+                Limit::perMinute(20)->by($request->ip()),
+            ];
+        });
+
+        // The reset email links to the React app, not to a Laravel page.
+        ResetPassword::createUrlUsing(function ($notifiable, string $token) {
+            return config('reviewerhub.frontend_url')
+                . '/?reset_token=' . $token
+                . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
         });
 
         // Registration: limit mass account creation from a single IP.

@@ -2,11 +2,13 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LearningResourceController;
+use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProfilePhotoController;
 use App\Http\Controllers\Api\ResourceInteractionController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\TranslationController;
 use App\Http\Controllers\Api\TeacherController;
+use App\Http\Controllers\Api\VideoResourceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -15,10 +17,11 @@ Route::post('/register', [AuthController::class, 'register'])
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:login');
 
-Route::get('/resources', [
-    LearningResourceController::class,
-    'index'
-]);
+// Password reset (public, rate limited). Always answers the same way for /forgot-password.
+Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])
+    ->middleware('throttle:password-reset');
+Route::post('/reset-password', [PasswordResetController::class, 'reset'])
+    ->middleware('throttle:password-reset');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
@@ -26,6 +29,15 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // The reviewer list needs a signed-in account (it names the uploaders).
+    Route::get('/resources', [
+        LearningResourceController::class,
+        'index'
+    ]);
+
+    // Leaderboard for the dashboard. Keep it above /resources/{resource}.
+    Route::get('/resources/top', [LearningResourceController::class, 'top']);
 
     Route::post('/resources', [
         LearningResourceController::class,
@@ -43,6 +55,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/resources/{resource}/comments', [ResourceInteractionController::class, 'storeComment'])
         ->middleware('throttle:20,1');
     Route::delete('/comments/{comment}', [ResourceInteractionController::class, 'destroyComment']);
+
+    // Video reviewers shared as YouTube / Vimeo links.
+    Route::get('/videos', [VideoResourceController::class, 'index']);
+    Route::post('/videos', [VideoResourceController::class, 'store'])
+        ->middleware('throttle:20,1');
+    Route::delete('/videos/{video}', [VideoResourceController::class, 'destroy'])
+        ->whereNumber('video');
 
     // The signed-in user's own class schedule (add / edit / delete).
     Route::get('/schedule', [ScheduleController::class, 'index']);

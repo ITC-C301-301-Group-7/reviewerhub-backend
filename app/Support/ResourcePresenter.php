@@ -21,7 +21,7 @@ class ResourcePresenter
         return $query
             ->with('user:id,name')
             ->withAvg('ratings', 'rating')
-            ->withCount(['ratings', 'comments']);
+            ->withCount(['ratings', 'comments', 'bookmarks']);
     }
 
     public static function paginate(Builder $query, int $perPage, ?User $viewer): LengthAwarePaginator
@@ -46,12 +46,36 @@ class ResourcePresenter
         );
     }
 
+    // The first $limit rows of an already-ordered query, in the same JSON shape as paginate().
+    public static function top(Builder $query, int $limit, ?User $viewer): array
+    {
+        $items = self::withStats($query)->limit($limit)->get();
+        $ids = $items->pluck('id')->all();
+
+        $bookmarked = $viewer
+            ? ResourceBookmark::where('user_id', $viewer->id)
+            ->whereIn('learning_resource_id', $ids)
+            ->pluck('learning_resource_id')->all()
+            : [];
+
+        $myRatings = $viewer
+            ? ResourceRating::where('user_id', $viewer->id)
+            ->whereIn('learning_resource_id', $ids)
+            ->pluck('rating', 'learning_resource_id')->all()
+            : [];
+
+        return $items
+            ->map(fn($r) => self::present($r, in_array($r->id, $bookmarked), $myRatings[$r->id] ?? null))
+            ->values()
+            ->all();
+    }
+
     // For a single resource (loads the stats itself if they are missing).
     public static function presentFor(LearningResource $resource, ?User $viewer): array
     {
         $resource->loadMissing('user:id,name')
             ->loadAvg('ratings', 'rating')
-            ->loadCount(['ratings', 'comments']);
+            ->loadCount(['ratings', 'comments', 'bookmarks']);
 
         $bookmarked = $viewer
             && ResourceBookmark::where('user_id', $viewer->id)
@@ -86,6 +110,7 @@ class ResourcePresenter
                 : null,
             'ratingCount' => (int) ($r->ratings_count ?? 0),
             'commentCount' => (int) ($r->comments_count ?? 0),
+            'bookmarkCount' => (int) ($r->bookmarks_count ?? 0),
             'bookmarked' => $bookmarked,
             'myRating' => $myRating,
         ];
