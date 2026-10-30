@@ -17,6 +17,7 @@ class LearningResourceController extends Controller
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
             'search' => ['sometimes', 'nullable', 'string', 'max:100'],
             'college' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'official' => ['sometimes', 'boolean'],
         ]);
 
         // Newest first; id breaks ties so pages never repeat or skip rows.
@@ -41,6 +42,11 @@ class LearningResourceController extends Controller
 
         if (!empty($filters['college'])) {
             $query->where('college', 'like', '%' . $filters['college'] . '%');
+        }
+
+        // ?official=1 -> only documents published by faculty (the Official Learning Resources tab).
+        if ($request->boolean('official')) {
+            $query->whereHas('user', fn($user) => $user->where('role', 'teacher'));
         }
 
         // The route needs a signed-in user; the token adds bookmark / my-rating info.

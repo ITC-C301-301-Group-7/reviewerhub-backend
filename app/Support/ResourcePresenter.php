@@ -19,7 +19,7 @@ class ResourcePresenter
     public static function withStats(Builder $query): Builder
     {
         return $query
-            ->with('user:id,name')
+            ->with('user:id,name,role,department')
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'comments', 'bookmarks']);
     }
@@ -73,7 +73,7 @@ class ResourcePresenter
     // For a single resource (loads the stats itself if they are missing).
     public static function presentFor(LearningResource $resource, ?User $viewer): array
     {
-        $resource->loadMissing('user:id,name')
+        $resource->loadMissing('user:id,name,role,department')
             ->loadAvg('ratings', 'rating')
             ->loadCount(['ratings', 'comments', 'bookmarks']);
 
@@ -99,6 +99,9 @@ class ResourcePresenter
             'description' => $r->description,
             'author' => $r->user?->name ?? 'ReviewerHub User',
             'userId' => $r->user_id,
+            // Official = published by a faculty account (shown in Reviewer Community > Official Learning Resources).
+            'official' => $r->user?->role === 'teacher',
+            'authorDepartment' => $r->user?->department,
             'createdAt' => $r->created_at?->toIso8601String(),
             'filename' => $r->original_filename,
             'mimeType' => $r->mime_type,

@@ -101,8 +101,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('teacher')->prefix('teacher')->group(function () {
         Route::get('/overview', [TeacherController::class, 'overview']);
         Route::get('/resources', [TeacherController::class, 'resources']);
-        Route::patch('/resources/{resource}', [TeacherController::class, 'update']);
-        Route::patch('/resources/{resource}/status', [TeacherController::class, 'setStatus']);
+        // Keep the bulk route above /resources/{resource} so "bulk-status" is not read as an id.
+        Route::patch('/resources/bulk-status', [TeacherController::class, 'bulkStatus']);
+        Route::patch('/resources/{resource}', [TeacherController::class, 'update'])->whereNumber('resource');
+        Route::patch('/resources/{resource}/status', [TeacherController::class, 'setStatus'])->whereNumber('resource');
         Route::get('/community', [TeacherController::class, 'community']);
     });
 });
