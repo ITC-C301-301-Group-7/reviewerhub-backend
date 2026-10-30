@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\LearningResource;
 use App\Models\ResourceBookmark;
 use App\Models\ResourceComment;
+use App\Models\ResourceLike;
 use App\Models\ResourceRating;
 use App\Support\ResourcePresenter;
 use Illuminate\Http\Request;
@@ -75,6 +76,39 @@ class ResourceInteractionController extends Controller
         return response()->json(['bookmarked' => false]);
     }
 
+    /* ---------------- Likes ---------------- */
+
+    // PUT /api/resources/{resource}/like  (idempotent)
+    public function like(Request $request, LearningResource $resource)
+    {
+        $this->authorizeView($request, $resource);
+
+        abort_if(
+            $request->user()->id === $resource->user_id,
+            403,
+            'You cannot like your own upload.'
+        );
+
+        ResourceLike::firstOrCreate([
+            'user_id' => $request->user()->id,
+            'learning_resource_id' => $resource->id,
+        ]);
+
+        return response()->json(['liked' => true, 'likeCount' => $resource->likes()->count()]);
+    }
+
+    // DELETE /api/resources/{resource}/like  (idempotent)
+    public function unlike(Request $request, LearningResource $resource)
+    {
+        $this->authorizeView($request, $resource);
+
+        ResourceLike::where('user_id', $request->user()->id)
+            ->where('learning_resource_id', $resource->id)
+            ->delete();
+
+        return response()->json(['liked' => false, 'likeCount' => $resource->likes()->count()]);
+    }
+
     /* ---------------- Ratings ---------------- */
 
     // PUT /api/resources/{resource}/rating  { rating: 1-5 }
@@ -101,6 +135,24 @@ class ResourceInteractionController extends Controller
 
         return response()->json([
             'myRating' => (int) $validated['rating'],
+            'ratingAverage' => round((float) $stats->average, 1),
+            'ratingCount' => (int) $stats->total,
+        ]);
+    }
+
+    // DELETE /api/resources/{resource}/rating  (takes back the student's own rating)
+    public function unrate(Request $request, LearningResource $resource)
+    {
+        $this->authorizeView($request, $resource);
+
+        ResourceRating::where('user_id', $request->user()->id)
+            ->where('learning_resource_id', $resource->id)
+            ->delete();
+
+        $stats = $resource->ratings()->selectRaw('AVG(rating) as average, COUNT(*) as total')->first();
+
+        return response()->json([
+            'myRating' => 0,
             'ratingAverage' => round((float) $stats->average, 1),
             'ratingCount' => (int) $stats->total,
         ]);

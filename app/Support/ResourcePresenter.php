@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\LearningResource;
 use App\Models\ResourceBookmark;
+use App\Models\ResourceLike;
 use App\Models\ResourceRating;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -21,7 +22,17 @@ class ResourcePresenter
         return $query
             ->with('user:id,name,role,department')
             ->withAvg('ratings', 'rating')
-            ->withCount(['ratings', 'comments', 'bookmarks']);
+            ->withCount(['ratings', 'comments', 'bookmarks', 'likes']);
+    }
+
+    // Ids (out of $ids) the viewer has liked.
+    private static function likedIds(?User $viewer, array $ids): array
+    {
+        return $viewer
+            ? ResourceLike::where('user_id', $viewer->id)
+            ->whereIn('learning_resource_id', $ids)
+            ->pluck('learning_resource_id')->all()
+            : [];
     }
 
     public static function paginate(Builder $query, int $perPage, ?User $viewer): LengthAwarePaginator
@@ -41,8 +52,10 @@ class ResourcePresenter
             ->pluck('rating', 'learning_resource_id')->all()
             : [];
 
+        $liked = self::likedIds($viewer, $ids);
+
         return $page->through(
-            fn($r) => self::present($r, in_array($r->id, $bookmarked), $myRatings[$r->id] ?? null)
+            fn($r) => self::present($r, in_array($r->id, $bookmarked), $myRatings[$r->id] ?? null, in_array($r->id, $liked))
         );
     }
 
@@ -64,8 +77,10 @@ class ResourcePresenter
             ->pluck('rating', 'learning_resource_id')->all()
             : [];
 
+        $liked = self::likedIds($viewer, $ids);
+
         return $items
-            ->map(fn($r) => self::present($r, in_array($r->id, $bookmarked), $myRatings[$r->id] ?? null))
+            ->map(fn($r) => self::present($r, in_array($r->id, $bookmarked), $myRatings[$r->id] ?? null, in_array($r->id, $liked)))
             ->values()
             ->all();
     }
@@ -75,7 +90,7 @@ class ResourcePresenter
     {
         $resource->loadMissing('user:id,name,role,department')
             ->loadAvg('ratings', 'rating')
-            ->loadCount(['ratings', 'comments', 'bookmarks']);
+            ->loadCount(['ratings', 'comments', 'bookmarks', 'likes']);
 
         $bookmarked = $viewer
             && ResourceBookmark::where('user_id', $viewer->id)
@@ -86,10 +101,14 @@ class ResourcePresenter
             ->where('learning_resource_id', $resource->id)->value('rating')
             : null;
 
-        return self::present($resource, (bool) $bookmarked, $myRating);
+        $liked = $viewer
+            && ResourceLike::where('user_id', $viewer->id)
+            ->where('learning_resource_id', $resource->id)->exists();
+
+        return self::present($resource, (bool) $bookmarked, $myRating, (bool) $liked);
     }
 
-    public static function present(LearningResource $r, bool $bookmarked = false, ?int $myRating = null): array
+    public static function present(LearningResource $r, bool $bookmarked = false, ?int $myRating = null, bool $liked = false): array
     {
         return [
             'id' => $r->id,
@@ -116,6 +135,8 @@ class ResourcePresenter
             'bookmarkCount' => (int) ($r->bookmarks_count ?? 0),
             'bookmarked' => $bookmarked,
             'myRating' => $myRating,
+            'likeCount' => (int) ($r->likes_count ?? 0),
+            'liked' => $liked,
         ];
     }
 }

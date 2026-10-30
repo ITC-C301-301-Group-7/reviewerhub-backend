@@ -66,7 +66,7 @@ class LearningResourceController extends Controller
     public function top(Request $request)
     {
         $filters = $request->validate([
-            'sort' => ['sometimes', 'in:rated,reviewed,saved'],
+            'sort' => ['sometimes', 'in:rated,reviewed,saved,liked'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:20'],
         ]);
 
@@ -75,6 +75,7 @@ class LearningResourceController extends Controller
         $ratings = '(select count(*) from resource_ratings where resource_ratings.learning_resource_id = learning_resources.id)';
         $comments = '(select count(*) from resource_comments where resource_comments.learning_resource_id = learning_resources.id)';
         $saves = '(select count(*) from resource_bookmarks where resource_bookmarks.learning_resource_id = learning_resources.id)';
+        $likes = '(select count(*) from resource_likes where resource_likes.learning_resource_id = learning_resources.id)';
 
         $query = LearningResource::query()->where('status', 'approved');
 
@@ -86,6 +87,9 @@ class LearningResourceController extends Controller
         } elseif ($sort === 'reviewed') {
             $query->whereRaw("($ratings + $comments) > 0")
                 ->orderByRaw("($ratings + $comments) desc");
+        } elseif ($sort === 'liked') {
+            $query->whereRaw("$likes > 0")
+                ->orderByRaw("$likes desc");
         } else {
             $query->whereRaw("$saves > 0")
                 ->orderByRaw("$saves desc");

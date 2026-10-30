@@ -52,6 +52,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/resources/{resource}/bookmark', [ResourceInteractionController::class, 'addBookmark']);
     Route::delete('/resources/{resource}/bookmark', [ResourceInteractionController::class, 'removeBookmark']);
     Route::put('/resources/{resource}/rating', [ResourceInteractionController::class, 'rate']);
+    Route::delete('/resources/{resource}/rating', [ResourceInteractionController::class, 'unrate']);
+    Route::put('/resources/{resource}/like', [ResourceInteractionController::class, 'like']);
+    Route::delete('/resources/{resource}/like', [ResourceInteractionController::class, 'unlike']);
     Route::get('/resources/{resource}/comments', [ResourceInteractionController::class, 'comments']);
     Route::post('/resources/{resource}/comments', [ResourceInteractionController::class, 'storeComment'])
         ->middleware('throttle:20,1');

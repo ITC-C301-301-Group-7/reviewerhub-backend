@@ -49,6 +49,11 @@ class LearningResource extends Model
         return $this->hasMany(ResourceBookmark::class);
     }
 
+    public function likes(): HasMany
+    {
+        return $this->hasMany(ResourceLike::class);
+    }
+
     // Hidden reviewers can only be opened by their owner or a teacher.
     public function isViewableBy(?User $user): bool
     {

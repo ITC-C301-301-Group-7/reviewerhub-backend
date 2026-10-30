@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\LearningResource;
 use App\Models\ResourceBookmark;
 use App\Models\ResourceComment;
+use App\Models\ResourceLike;
 use App\Models\ResourceRating;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -91,6 +92,43 @@ class TopReviewersTest extends TestCase
         $titles = collect($this->getJson('/api/resources/top?sort=reviewed')->assertOk()->json('data'))->pluck('title')->all();
 
         $this->assertSame(['Busy', 'Quiet'], $titles);
+    }
+
+    public function test_most_liked_orders_by_likes_and_skips_unliked(): void
+    {
+        $owner = $this->student('1');
+        $a = $this->student('2');
+        $b = $this->student('3');
+        $some = $this->resource($owner, 'Some likes');
+        $many = $this->resource($owner, 'Many likes');
+        $this->resource($owner, 'No likes');
+
+        ResourceLike::create(['user_id' => $a->id, 'learning_resource_id' => $some->id]);
+        ResourceLike::create(['user_id' => $a->id, 'learning_resource_id' => $many->id]);
+        ResourceLike::create(['user_id' => $b->id, 'learning_resource_id' => $many->id]);
+
+        Sanctum::actingAs($a);
+
+        $data = $this->getJson('/api/resources/top?sort=liked')->assertOk()->json('data');
+
+        $this->assertSame(['Many likes', 'Some likes'], collect($data)->pluck('title')->all());
+        $this->assertSame(2, $data[0]['likeCount']);
+        $this->assertTrue($data[0]['liked']);
+    }
+
+    public function test_like_and_unlike_are_idempotent_and_owner_cannot_like(): void
+    {
+        $owner = $this->student('1');
+        $fan = $this->student('2');
+        $r = $this->resource($owner, 'Liked');
+
+        Sanctum::actingAs($fan);
+        $this->putJson("/api/resources/{$r->id}/like")->assertOk()->assertJson(['liked' => true, 'likeCount' => 1]);
+        $this->putJson("/api/resources/{$r->id}/like")->assertOk()->assertJson(['likeCount' => 1]);
+        $this->deleteJson("/api/resources/{$r->id}/like")->assertOk()->assertJson(['liked' => false, 'likeCount' => 0]);
+
+        Sanctum::actingAs($owner);
+        $this->putJson("/api/resources/{$r->id}/like")->assertForbidden();
     }
 
     public function test_most_saved_and_hidden_reviewers_are_excluded(): void
