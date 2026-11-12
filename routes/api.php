@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ResourceInteractionController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\TranslationController;
 use App\Http\Controllers\Api\TeacherController;
+use App\Http\Controllers\Api\TierController;
 use App\Http\Controllers\Api\VideoResourceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -79,6 +80,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // OCR text is extracted in the browser; this only translates it.
     Route::post('/translate', [TranslationController::class, 'translate'])
         ->middleware('throttle:60,1');
+
+    // Tier badge, plus what the tier allows for one reviewer (preview pages, downloads left).
+    Route::get('/tier', [TierController::class, 'show']);
+    Route::get('/resources/{resource}/access', [
+        LearningResourceController::class,
+        'access'
+    ])->whereNumber('resource');
 
     Route::get('/resources/{resource}/preview', [
         LearningResourceController::class,
