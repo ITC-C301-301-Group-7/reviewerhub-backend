@@ -105,6 +105,18 @@ class LearningResourceController extends Controller
 
     public function store(Request $request)
     {
+        \Illuminate\Support\Facades\Log::info('UPLOAD DEBUG', [
+            'content_length' => $request->header('Content-Length'),
+            'content_type' => $request->header('Content-Type'),
+            'fields' => array_keys($request->all()),
+            'files_global' => $_FILES,
+            'upload_max_filesize' => ini_get('upload_max_filesize'),
+            'post_max_size' => ini_get('post_max_size'),
+            'upload_tmp_dir' => ini_get('upload_tmp_dir'),
+            'sys_temp_dir' => sys_get_temp_dir(),
+            'temp_writable' => is_writable(sys_get_temp_dir()),
+        ]);
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'course_code' => ['required', 'string', 'max:50'],
