@@ -39,7 +39,7 @@ return [
     ],
 
     /*
-    | Contributor tiers (Tier 1 to Tier 10, every 100 points up to 1000). A student's ALL-TIME leaderboard points decide their tier, and the tier decides
+    | Contributor tiers (Tier 0 to Tier 10; Tier 10 starts at 900 points). A student's ALL-TIME leaderboard points decide their tier, and the tier decides
     | how much of a reviewer they can preview and how many files they can download each month.
     |   min_points         all-time points needed for the tier
     |   preview_pages      PDF pages shown in Preview (null = the whole file)
@@ -47,15 +47,16 @@ return [
     | Everyone gets the free preview of the first pages. Owners and faculty always see everything.
     */
     "tiers" => [
-        ["key" => "tier1", "name" => "Tier 1", "min_points" => 0, "preview_pages" => 3, "downloads_per_month" => 0],
-        ["key" => "tier2", "name" => "Tier 2", "min_points" => 100, "preview_pages" => 5, "downloads_per_month" => 3],
-        ["key" => "tier3", "name" => "Tier 3", "min_points" => 200, "preview_pages" => 8, "downloads_per_month" => 5],
-        ["key" => "tier4", "name" => "Tier 4", "min_points" => 300, "preview_pages" => 12, "downloads_per_month" => 8],
-        ["key" => "tier5", "name" => "Tier 5", "min_points" => 400, "preview_pages" => 16, "downloads_per_month" => 12],
-        ["key" => "tier6", "name" => "Tier 6", "min_points" => 500, "preview_pages" => 20, "downloads_per_month" => 16],
-        ["key" => "tier7", "name" => "Tier 7", "min_points" => 600, "preview_pages" => 30, "downloads_per_month" => 20],
-        ["key" => "tier8", "name" => "Tier 8", "min_points" => 700, "preview_pages" => 40, "downloads_per_month" => 30],
-        ["key" => "tier9", "name" => "Tier 9", "min_points" => 800, "preview_pages" => 60, "downloads_per_month" => 50],
+        ["key" => "tier0", "name" => "Tier 0", "min_points" => 0, "preview_pages" => 3, "downloads_per_month" => 0],
+        ["key" => "tier1", "name" => "Tier 1", "min_points" => 50, "preview_pages" => 5, "downloads_per_month" => 2],
+        ["key" => "tier2", "name" => "Tier 2", "min_points" => 100, "preview_pages" => 7, "downloads_per_month" => 3],
+        ["key" => "tier3", "name" => "Tier 3", "min_points" => 200, "preview_pages" => 9, "downloads_per_month" => 5],
+        ["key" => "tier4", "name" => "Tier 4", "min_points" => 300, "preview_pages" => 12, "downloads_per_month" => 7],
+        ["key" => "tier5", "name" => "Tier 5", "min_points" => 400, "preview_pages" => 16, "downloads_per_month" => 9],
+        ["key" => "tier6", "name" => "Tier 6", "min_points" => 500, "preview_pages" => 20, "downloads_per_month" => 11],
+        ["key" => "tier7", "name" => "Tier 7", "min_points" => 600, "preview_pages" => 30, "downloads_per_month" => 13],
+        ["key" => "tier8", "name" => "Tier 8", "min_points" => 700, "preview_pages" => 40, "downloads_per_month" => 15],
+        ["key" => "tier9", "name" => "Tier 9", "min_points" => 800, "preview_pages" => 60, "downloads_per_month" => 20],
         ["key" => "tier10", "name" => "Tier 10", "min_points" => 900, "preview_pages" => null, "downloads_per_month" => null],
     ],
 

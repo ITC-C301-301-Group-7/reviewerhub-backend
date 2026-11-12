@@ -42,7 +42,9 @@ class TierBadgeTest extends TestCase
 
     public function test_points_pick_the_tier(): void
     {
-        $this->assertSame('tier1', ContributorTier::keyForPoints(0));
+        $this->assertSame('tier0', ContributorTier::keyForPoints(0));
+        $this->assertSame('tier0', ContributorTier::keyForPoints(49));
+        $this->assertSame('tier1', ContributorTier::keyForPoints(50));
         $this->assertSame('tier1', ContributorTier::keyForPoints(99));
         $this->assertSame('tier2', ContributorTier::keyForPoints(100));
         $this->assertSame('tier5', ContributorTier::keyForPoints(450));
@@ -65,7 +67,7 @@ class TierBadgeTest extends TestCase
             ->assertOk()
             ->assertJsonPath('previewPages', 3)
             ->assertJsonPath('canDownload', false)
-            ->assertJsonPath('tier.key', 'tier1');
+            ->assertJsonPath('tier.key', 'tier0');
 
         $this->get("/api/resources/{$resource->id}/download")->assertForbidden();
     }
@@ -89,9 +91,33 @@ class TierBadgeTest extends TestCase
             ->assertOk()
             ->assertJsonPath('key', 'tier2')
             ->assertJsonPath('points', 100)
-            ->assertJsonPath('previewPages', 5);
+            ->assertJsonPath('previewPages', 7);
 
         $this->get("/api/resources/{$resource->id}/download")->assertOk();
+    }
+
+    public function test_tier_1_gets_two_downloads_a_month(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('reviewers/file.pdf', '%PDF-1.4');
+
+        $owner = $this->student('1');
+        $reader = $this->student('2');
+        $this->resource($reader, 'My upload'); // 50 points -> Tier 1
+
+        Sanctum::actingAs($reader);
+
+        $this->getJson('/api/tier')
+            ->assertOk()
+            ->assertJsonPath('key', 'tier1')
+            ->assertJsonPath('previewPages', 5)
+            ->assertJsonPath('downloadsPerMonth', 2);
+
+        $files = collect(range(1, 3))->map(fn($i) => $this->resource($owner, "Reviewer $i"));
+
+        $this->get("/api/resources/{$files[0]->id}/download")->assertOk();
+        $this->get("/api/resources/{$files[1]->id}/download")->assertOk();
+        $this->get("/api/resources/{$files[2]->id}/download")->assertForbidden();
     }
 
     public function test_tier_2_monthly_download_limit_is_enforced(): void

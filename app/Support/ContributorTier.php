@@ -51,8 +51,8 @@ class ContributorTier
     {
         $tiers = self::all();
         $current = $tiers[0] ?? [
-            'key' => 'tier1',
-            'name' => 'Tier 1',
+            'key' => 'tier0',
+            'name' => 'Tier 0',
             'min_points' => 0,
             'preview_pages' => 3,
             'downloads_per_month' => 0,

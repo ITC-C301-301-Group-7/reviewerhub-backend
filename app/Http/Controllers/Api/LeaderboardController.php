@@ -51,7 +51,7 @@ class LeaderboardController extends Controller
             'since' => $window['since']?->toIso8601String(),
             'total' => $ranked->count(),
             'data' => $ranked->take($limit)
-                ->map(fn($row) => $row + ['tier' => $tiers[$row['userId']] ?? 'tier1'])
+                ->map(fn($row) => $row + ['tier' => $tiers[$row['userId']] ?? 'tier0'])
                 ->values()
                 ->all(),
             // The signed-in student in this period (rank is null until they have points) ...
