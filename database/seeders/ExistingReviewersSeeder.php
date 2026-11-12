@@ -22,10 +22,20 @@ class ExistingReviewersSeeder extends Seeder
         $private = Storage::disk('local');   // storage/app/private (what preview/download read)
         $public = Storage::disk('public');   // storage/app/public  (where the PDFs were placed)
 
-        // Copy any PDFs from the public folder into the private one, if missing.
+        // MOVE any PDFs from the public folder into the private one. Leaving a copy in the public
+        // folder would expose it at /storage/... (after `php artisan storage:link`) to anyone, with no
+        // sign-in and no tier limits. Reviewer files must only be served by the authenticated routes.
         foreach ($public->files('resources') as $path) {
-            if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf' && !$private->exists($path)) {
+            if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) !== 'pdf') {
+                continue;
+            }
+
+            if (!$private->exists($path)) {
                 $private->writeStream($path, $public->readStream($path));
+            }
+
+            if ($private->exists($path)) {
+                $public->delete($path);
             }
         }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\LearningResource;
+use App\Support\ContributorTier;
 use App\Support\ResourcePresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -139,6 +140,18 @@ class LearningResourceController extends Controller
         ], 201);
     }
 
+    // GET /api/resources/{resource}/access
+    // What the signed-in user's tier allows for this one reviewer: how many pages they may
+    // preview, whether they can download it, and how many downloads they have left this month.
+    public function access(Request $request, LearningResource $resource)
+    {
+        $this->abortUnlessViewable($request, $resource);
+
+        return response()->json(
+            ContributorTier::accessFor($request->user(), $resource)
+        );
+    }
+
     public function preview(Request $request, LearningResource $resource)
     {
         $this->abortUnlessViewable($request, $resource);
@@ -161,7 +174,21 @@ class LearningResourceController extends Controller
     {
         $this->abortUnlessViewable($request, $resource);
 
-        return $this->serveFile($resource, false);
+        // The tier decides whether this download is allowed. Owners and faculty are never limited.
+        $access = ContributorTier::accessFor($request->user(), $resource);
+
+        abort_unless(
+            $access['canDownload'],
+            403,
+            $access['reason'] ?? 'Your tier does not allow this download.'
+        );
+
+        $response = $this->serveFile($resource, false);
+
+        // Only count the download once the file was found (serveFile aborts with 404 otherwise).
+        ContributorTier::recordDownload($request->user(), $resource);
+
+        return $response;
     }
 
     public function destroy(Request $request, LearningResource $resource)

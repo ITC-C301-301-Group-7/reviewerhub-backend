@@ -32,7 +32,7 @@ Laravel, PHP, MySQL (SQLite also works), Laravel Sanctum, Composer. The frontend
 
 ## Requirements
 
-- PHP 8.2 or newer and Composer
+- PHP 8.3 or newer and Composer
 - MySQL (XAMPP is fine) or SQLite
 - Git
 - Internet access on the server if you use document translation
@@ -233,6 +233,25 @@ The React app runs separately (default `http://localhost:5173`) and calls this A
 - Reviewer files are stored on the private disk. They are only served through authenticated routes.
 - Remove or change the test teacher account before deploying publicly.
 - Use HTTPS when deploying.
+
+## Contributor tiers
+
+Students earn all-time points (+50 per approved reviewer uploaded, +10 per 5-star rating received from someone else). Their points decide a tier (Tier 1 to Tier 10), and the tier decides how much of a reviewer they can preview and how many different reviewers they can download each month. Edit the thresholds in `config/reviewerhub.php` -> `tiers`.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/tier` | The signed-in user's tier, points, allowances and progress to the next tier |
+| `GET /api/resources/{id}/access` | What the tier allows for one reviewer (`previewPages`, `canDownload`, `downloadsLeft`, `reason`) |
+| `GET /api/resources/{id}/download` | Returns `403` with the reason when the tier does not allow it; counts the download otherwise |
+| `GET /api/leaderboard` | Every row and `allTime` now include a `tier` key |
+
+Owners of a reviewer and faculty accounts are never limited.
+
+**Preview page limit.** `previewPages` is applied by the React app (it draws only that many pages). The `/preview` route still sends the whole file, so this limit is a courtesy, not a security boundary. Download limits ARE enforced by the server. If you need a hard preview limit, cut the PDF to `previewPages` pages on the server before sending it (for example with a PDF library such as FPDI/TCPDF).
+
+**Quiz and translator.** They read the reviewer through the download route, so a student whose tier has no downloads left will be told so instead of getting a quiz.
+
+**Seeded PDFs.** `php artisan db:seed` moves PDFs out of `storage/app/public/resources` into the private disk. Do not keep reviewer files under `storage/app/public`: after `php artisan storage:link` anything there is public.
 
 ---
 

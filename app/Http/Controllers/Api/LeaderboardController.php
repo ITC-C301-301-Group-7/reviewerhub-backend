@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\LearningResource;
 use App\Models\ResourceRating;
 use App\Models\User;
+use App\Support\ContributorTier;
 use App\Support\LeaderboardPeriod;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -35,6 +36,11 @@ class LeaderboardController extends Controller
         $ranked = $this->ranked($window['since']);
         $allTime = $period === 'all' ? $ranked : $this->ranked(null);
 
+        // A student's tier always comes from their ALL-TIME points, even on the monthly board.
+        $tiers = $allTime->mapWithKeys(
+            fn($row) => [$row['userId'] => ContributorTier::keyForPoints($row['points'])]
+        );
+
         $me = $request->user()->id;
         $mine = $ranked->firstWhere('userId', $me);
         $mineAll = $allTime->firstWhere('userId', $me);
@@ -44,7 +50,10 @@ class LeaderboardController extends Controller
             'label' => $window['label'],
             'since' => $window['since']?->toIso8601String(),
             'total' => $ranked->count(),
-            'data' => $ranked->take($limit)->values()->all(),
+            'data' => $ranked->take($limit)
+                ->map(fn($row) => $row + ['tier' => $tiers[$row['userId']] ?? 'tier1'])
+                ->values()
+                ->all(),
             // The signed-in student in this period (rank is null until they have points) ...
             'me' => [
                 'rank' => $mine['rank'] ?? null,
@@ -55,6 +64,7 @@ class LeaderboardController extends Controller
             'allTime' => [
                 'points' => $mineAll['points'] ?? 0,
                 'contributions' => $mineAll['contributions'] ?? 0,
+                'tier' => ContributorTier::keyForPoints($mineAll['points'] ?? 0),
             ],
             'rules' => [
                 'upload' => (int) config('reviewerhub.leaderboard.points_per_upload', 50),

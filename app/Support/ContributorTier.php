@@ -170,11 +170,11 @@ class ContributorTier
             if ((int) $limit === 0) {
                 $canDownload = false;
                 $reason = $tier['next']
-                    ? "Downloads unlock at {$tier['next']['name']} tier. Earn {$tier['pointsToNext']} more points (upload a reviewer or get 5-star ratings) to unlock them."
+                    ? "Downloads unlock at {$tier['next']['name']}. Earn {$tier['pointsToNext']} more points (upload a reviewer or get 5-star ratings) to unlock them."
                     : 'Downloads are not available for your tier.';
             } elseif (!$alreadyHas && $tier['downloadsLeft'] <= 0) {
                 $canDownload = false;
-                $reason = "You have used all {$limit} downloads of your {$tier['name']} tier this month."
+                $reason = "You have used all {$limit} downloads of {$tier['name']} this month."
                     . ($tier['next'] ? " Earn {$tier['pointsToNext']} more points to reach {$tier['next']['name']} for more." : '');
             }
         }
