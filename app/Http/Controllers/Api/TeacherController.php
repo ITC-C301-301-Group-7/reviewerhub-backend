@@ -305,17 +305,27 @@ class TeacherController extends Controller
         return response()->json(
             $query
                 ->paginate($filters['per_page'] ?? 10)
-                ->through(fn($u) => [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'email' => $u->email,
-                    'role' => $u->role,
-                    'schoolId' => $u->role === 'teacher' ? $u->faculty_id : $u->student_number,
-                    'department' => $u->department,
-                    'yearLevel' => $u->year_level,
-                    'uploads' => $u->uploads_count,
-                    'joinedAt' => $u->created_at?->toIso8601String(),
-                ])
+                ->through(function ($u) {
+                    // Faculty are not ranked; students get the tier their all-time points reach.
+                    $isTeacher = $u->role === 'teacher';
+                    $points = $isTeacher ? null : \App\Support\ContributorTier::pointsFor($u);
+                    $tier = $isTeacher ? null : \App\Support\ContributorTier::tierForPoints($points);
+
+                    return [
+                        'id' => $u->id,
+                        'name' => $u->name,
+                        'email' => $u->email,
+                        'role' => $u->role,
+                        'schoolId' => $u->role === 'teacher' ? $u->faculty_id : $u->student_number,
+                        'department' => $u->department,
+                        'yearLevel' => $u->year_level,
+                        'uploads' => $u->uploads_count,
+                        'tier' => $isTeacher ? 'faculty' : $tier['key'],
+                        'tierName' => $isTeacher ? 'Faculty' : $tier['name'],
+                        'points' => $points,
+                        'joinedAt' => $u->created_at?->toIso8601String(),
+                    ];
+                })
         );
     }
 

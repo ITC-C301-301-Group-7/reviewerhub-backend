@@ -114,7 +114,7 @@ class LearningResourceController extends Controller
                 'required',
                 'file',
                 'max:20480',
-                'mimes:pdf,doc,docx,ppt,pptx,jpg,jpeg,png,webp',
+                'extensions:pdf,doc,docx,ppt,pptx,jpg,jpeg,png,webp',
             ],
         ]);
 
@@ -129,7 +129,8 @@ class LearningResourceController extends Controller
             'description' => $validated['description'] ?? null,
             'original_filename' => $file->getClientOriginalName(),
             'file_path' => $path,
-            'mime_type' => $file->getMimeType()
+            'mime_type' => \App\Support\OfficeDocument::MIMES[strtolower($file->getClientOriginalExtension())]
+                ?? $file->getMimeType()
                 ?: 'application/octet-stream',
             'file_size' => $file->getSize(),
         ]);
