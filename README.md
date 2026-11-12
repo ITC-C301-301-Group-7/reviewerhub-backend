@@ -36,6 +36,7 @@ Laravel, PHP, MySQL (SQLite also works), Laravel Sanctum, Composer. The frontend
 - MySQL (XAMPP is fine) or SQLite
 - Git
 - Internet access on the server if you use document translation
+- A `php.ini` that allows uploads of at least 20 MB and has a writable temp folder (see *Upload settings* below)
 
 ## Installation
 
@@ -83,7 +84,20 @@ php artisan storage:link
 
 `storage:link` is needed so profile pictures can be displayed.
 
-### 5. Start the server
+### 5. Upload settings (`php.ini`)
+
+Uploads are limited by PHP before Laravel sees them. Run `php --ini` to find the active `php.ini` and set:
+
+```ini
+file_uploads = On
+upload_tmp_dir = "C:\php-tmp"   ; any writable folder; create it first
+upload_max_filesize = 25M
+post_max_size = 30M
+```
+
+Restart `php artisan serve` afterwards. Without a writable `upload_tmp_dir` PHP reports upload error 6 and the API answers `422 The file failed to upload`, even for small files.
+
+### 6. Start the server
 
 ```bash
 php artisan serve
@@ -136,7 +150,7 @@ Base URL: `http://127.0.0.1:8000/api`. "Auth" means a Bearer token is required.
 | GET | `/resources` | List visible reviewers. Filters: `search`, `college`, `page`, `per_page`. Includes `ratingAverage`, `ratingCount`, `commentCount`, and `bookmarked` / `myRating` when a token is sent | No |
 | POST | `/resources` | Upload (`title`, `course_code`, `college`, `description`, `file`). Allowed: pdf, doc, docx, ppt, pptx, jpg, jpeg, png, webp, up to 20 MB | Yes |
 | GET | `/resources/{id}` | One resource with rating and bookmark info (used by QR links) | Yes |
-| GET | `/resources/{id}/preview` | Inline view (PDF and images only) | Yes |
+| GET | `/resources/{id}/preview` | Inline view (PDF and images only; other types answer `415`). The React app draws Word and PowerPoint files itself from the download route | Yes |
 | GET | `/resources/{id}/download` | Download the file | Yes |
 | DELETE | `/resources/{id}` | Delete (owner, or any teacher) | Yes |
 
@@ -221,6 +235,7 @@ The React app runs separately (default `http://localhost:5173`) and calls this A
 
 ## Troubleshooting
 
+- **Upload answers `422 The file failed to upload`:** PHP could not store the upload. Check `upload_tmp_dir`, `upload_max_filesize` and `post_max_size` as described in step 5. A log line with `error: 6` means no writable temp folder.
 - **A new route or class is "not found":** run `php artisan route:clear` and `php artisan config:clear`, then restart `php artisan serve`.
 - **Preview says "The reviewer file could not be found":** the PDF is missing from `storage/app/private/resources`. Run `php artisan db:seed --class=ExistingReviewersSeeder`.
 - **Translation says the daily quota is used up:** set `MYMEMORY_EMAIL` in `.env`, or switch to LibreTranslate.
@@ -248,6 +263,8 @@ Students earn all-time points (+50 per approved reviewer uploaded, +10 per 5-sta
 Owners of a reviewer and faculty accounts are never limited.
 
 **Preview page limit.** `previewPages` is applied by the React app (it draws only that many pages). The `/preview` route still sends the whole file, so this limit is a courtesy, not a security boundary. Download limits ARE enforced by the server. If you need a hard preview limit, cut the PDF to `previewPages` pages on the server before sending it (for example with a PDF library such as FPDI/TCPDF).
+
+**Word and PowerPoint previews.** `/preview` only serves PDFs and images. The React app previews `.docx` and `.pptx` by fetching the file from `/download` and drawing it in the browser, so these previews count as downloads and are refused when the tier has none left. To avoid that, allow the Word and PowerPoint MIME types in `LearningResourceController::preview()`.
 
 **Quiz and translator.** They read the reviewer through the download route, so a student whose tier has no downloads left will be told so instead of getting a quiz.
 
