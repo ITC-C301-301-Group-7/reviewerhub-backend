@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CheckinController;
 use App\Http\Controllers\Api\LearningResourceController;
 use App\Http\Controllers\Api\LeaderboardController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProfilePhotoController;
 use App\Http\Controllers\Api\ResourceInteractionController;
+use App\Http\Controllers\Api\ResourceReportController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\TranslationController;
 use App\Http\Controllers\Api\TeacherController;
@@ -67,6 +69,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('throttle:20,1');
     Route::delete('/videos/{video}', [VideoResourceController::class, 'destroy'])
         ->whereNumber('video');
+
+    // Daily check-in (+2 points the first time each day) and reporting a fake or inappropriate reviewer (+5 points).
+    Route::post('/checkin', [CheckinController::class, 'store'])
+        ->middleware('throttle:30,1');
+    Route::post('/resources/{resource}/report', [ResourceReportController::class, 'store'])
+        ->whereNumber('resource')
+        ->middleware('throttle:20,1');
 
     // Contributor leaderboard (This Month / This Semester / All-Time).
     Route::get('/leaderboard', [LeaderboardController::class, 'index']);

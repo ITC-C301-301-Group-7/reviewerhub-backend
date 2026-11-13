@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\LearningResource;
 use App\Models\ResourceRating;
 use App\Models\User;
+use App\Support\BonusPoints;
 use App\Support\ContributorTier;
 use App\Support\LeaderboardPeriod;
 use Carbon\Carbon;
@@ -18,6 +19,7 @@ use Illuminate\Support\Collection;
  * Points are worked out from real activity inside the chosen period:
  *   +points_per_upload     for every approved reviewer a student uploaded
  *   +points_per_five_star  for every 5-star rating a student's reviewers received from someone else
+ * plus the bonus points in BonusPoints (daily check-ins, reports, 50+ download milestones).
  */
 class LeaderboardController extends Controller
 {
@@ -69,6 +71,9 @@ class LeaderboardController extends Controller
             'rules' => [
                 'upload' => (int) config('reviewerhub.leaderboard.points_per_upload', 50),
                 'fiveStar' => (int) config('reviewerhub.leaderboard.points_per_five_star', 10),
+                'milestone' => (int) config('reviewerhub.leaderboard.points_per_milestone', 25),
+                'report' => (int) config('reviewerhub.leaderboard.points_per_report', 5),
+                'checkin' => (int) config('reviewerhub.leaderboard.points_per_checkin', 2),
             ],
         ]);
     }
@@ -100,7 +105,10 @@ class LeaderboardController extends Controller
             ->groupBy('learning_resources.user_id')
             ->pluck('total', 'owner_id');
 
-        $ids = $uploads->keys()->merge($stars->keys())->unique()->values();
+        // Daily check-ins, reports and 50+ download milestones in the same period.
+        $bonus = BonusPoints::totals($since);
+
+        $ids = $uploads->keys()->merge($stars->keys())->merge($bonus->keys())->unique()->values();
 
         $users = User::query()
             ->whereIn('id', $ids)
@@ -110,7 +118,7 @@ class LeaderboardController extends Controller
 
         return $ids
             ->filter(fn($id) => $users->has($id))
-            ->map(function ($id) use ($users, $uploads, $stars, $uploadPoints, $starPoints) {
+            ->map(function ($id) use ($users, $uploads, $stars, $bonus, $uploadPoints, $starPoints) {
                 $user = $users[$id];
                 $uploaded = (int) ($uploads[$id] ?? 0);
                 $fiveStars = (int) ($stars[$id] ?? 0);
@@ -120,7 +128,7 @@ class LeaderboardController extends Controller
                     'name' => $user->name,
                     'college' => $user->department,
                     'program' => $user->year_level,
-                    'points' => $uploaded * $uploadPoints + $fiveStars * $starPoints,
+                    'points' => $uploaded * $uploadPoints + $fiveStars * $starPoints + (int) $bonus->get($id, 0),
                     'contributions' => $uploaded,
                     'fiveStarRatings' => $fiveStars,
                 ];

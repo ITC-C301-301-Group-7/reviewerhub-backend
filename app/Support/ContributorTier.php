@@ -14,6 +14,7 @@ use App\Models\User;
  * Points use the same rules as the leaderboard (see LeaderboardController):
  *   +points_per_upload     per approved reviewer uploaded
  *   +points_per_five_star  per 5-star rating received from someone else
+ * plus the bonus points in BonusPoints (daily check-ins, reports, 50+ download milestones).
  */
 class ContributorTier
 {
@@ -42,8 +43,11 @@ class ContributorTier
             ->whereColumn('resource_ratings.user_id', '!=', 'learning_resources.user_id')
             ->count();
 
+        $bonus = (int) BonusPoints::totals(null, $user->id)->get($user->id, 0);
+
         return $uploads * (int) config('reviewerhub.leaderboard.points_per_upload', 50)
-            + $fiveStars * (int) config('reviewerhub.leaderboard.points_per_five_star', 10);
+            + $fiveStars * (int) config('reviewerhub.leaderboard.points_per_five_star', 10)
+            + $bonus;
     }
 
     /** The highest tier whose min_points the given points reach. */

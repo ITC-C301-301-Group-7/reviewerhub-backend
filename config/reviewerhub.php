@@ -31,6 +31,12 @@ return [
         "timezone" => env("LEADERBOARD_TIMEZONE", "Asia/Manila"),
         "points_per_upload" => 50,
         "points_per_five_star" => 10,
+        // Bonus points (see app/Support/BonusPoints.php)
+        "points_per_checkin" => 2,
+        "points_per_report" => 5,
+        "max_rewarded_reports_per_day" => 3,
+        "points_per_milestone" => 25,
+        "milestone_downloads" => 50,
         "semesters" => [
             ["start_month" => 1, "label" => "2nd Semester"],
             ["start_month" => 6, "label" => "Summer"],
